@@ -18,14 +18,14 @@ from pygame.locals import *
 
 from constants import *
 
-from interaction import update_sensors
+from graphics import Graphics
+from interaction import update_sensors, check_crash
 from car import Car, Sensor
 from world import World
 from utility import pg2cart, cart2pg
 from neural_network import NN
 
-SCALE = 0.010
-FRAMES_PER_SECOND = 30
+FRAMES_PER_SECOND = 90
 
 # Simulation class
 class CarsSim(object):
@@ -34,11 +34,17 @@ class CarsSim(object):
     n_cars = 10
 
     def __init__(self):
+        self.graphics = Graphics(141, 1./500) # 141 dpi, 1:400
+
         # init the screen
         pygame.init()
 
-        self.world = World(SCALE, 'simple')
-        self.screen = pygame.display.set_mode([int(self.world.w), int(self.world.h)])
+        self.world = World('simple')
+
+        w = self.graphics.convert(self.world.w)
+        h = self.graphics.convert(self.world.h)
+
+        self.screen = pygame.display.set_mode([w, h])
         pygame.display.set_caption("Simulation of AI Cars")
 
         self.screen.fill(WHITE)
@@ -46,6 +52,7 @@ class CarsSim(object):
         self.font = pygame.font.SysFont('lora', 11)
 
         # obstacles
+        self.world.convert_obstacles(self.graphics)
         self.draw_obstacles()
 
         pygame.display.flip()
@@ -60,12 +67,12 @@ class CarsSim(object):
         cars = []
 
         phis = 40 * rand(self.n_cars) - 10 # degree
-        max_v = 6
-        vs = (max_v - 1) * rand(self.n_cars) + 2 # m/s
+        self.max_v = 3
+        vs = (self.max_v - 1) * rand(self.n_cars) + 2 # m/s
 
         for phi, v in zip(phis, vs):
-            car = Car(SCALE, self.world.h, xstart, ystart, phi, max_v)
-            network = NN(10, 2, (7, 5, 3), 0.4, 0.5, 1.1)
+            car = Car(self.graphics.get_scale() * 0.1, self.graphics.convert(self.world.h), xstart, ystart, phi, self.max_v)
+            network = NN(10, 2, (7, 5, 3), 0.4, 0.5, 1.5)
             car.set_NN(network)
             cars.append(car)
 
@@ -83,14 +90,11 @@ class CarsSim(object):
 
         for obs in self.world.scaled_obstacles:
             # convert coordinates
-            coords = obs.copy()
-            coords[0] = cart2pg(obs[0], self.world.h)
-            coords[1] = cart2pg(obs[1], self.world.h)
-            pygame.draw.lines(self.screen, GREY, False, coords, 5)
+            pygame.draw.lines(self.screen, GREY, False, obs, 8)
 
         return
 
-    def get_sensor_data(self, car):
+    def update_sensor_data(self, car):
         """ Calculate the sensor data.
 
         The distance from every sensor to every line is calculated.
@@ -98,6 +102,7 @@ class CarsSim(object):
 
         """
         sensors = update_sensors(car.sensors, self.world.obstacles, car.phi, array([car.x, car.y]))
+        check_crash(car, self.world.obstacles)
 
         self.sensor_texts = []
 
@@ -106,7 +111,7 @@ class CarsSim(object):
                 self.font.render('Distance = %.2f - Visible: %d' \
                     % (s.obs_distance, int(s.obs_is_visible)), True, BLUE))
 
-        return ""
+        return
 
     def handle_events(self):
         """
@@ -189,7 +194,7 @@ class CarsSim(object):
         vs = (max_v - 1) * rand(self.n_cars) + 2 # m/s
 
         for phi, v in zip(phis, vs):
-            car = Car(SCALE, self.world.h, xstart, ystart, phi, max_v)
+            car = Car(self.graphics.get_scale() * 0.1, self.graphics.convert(self.world.h), xstart, ystart, phi, self.max_v)
             network = nn1.get_child(nn1)
             car.set_NN(network)
             cars.append(car)
@@ -205,11 +210,13 @@ class CarsSim(object):
 
         for car in self.cars.sprites():
             #car.move(dt)
-            self.get_sensor_data(car)
+            self.update_sensor_data(car)
 
 
         # iterate while running
         while self.running:
+
+            dt = clock.tick() / 1000.
 
             self.check_new_generation()
 
@@ -218,7 +225,7 @@ class CarsSim(object):
 
             for car in self.cars.sprites():
                 car.move(dt)
-                self.get_sensor_data(car)
+                self.update_sensor_data(car)
                 pass
 
             # handle events
@@ -246,8 +253,6 @@ class CarsSim(object):
 
 
             pygame.display.update()
-
-            clock.tick(FRAMES_PER_SECOND)
 
         pygame.quit()
         print("The simulation has finished.\n")

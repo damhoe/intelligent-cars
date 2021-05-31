@@ -240,9 +240,7 @@ class Car(pygame.sprite.Sprite):
         self.original_image.fill(BLUE) # transparent
 
         # check crashed
-        for s in self.sensors:
-            if s.obs_distance <= s.d_min:
-                self.crashed = True
+
 
         #-------------------------------------------------------------------------------------------
         # blit the wheels
@@ -296,23 +294,18 @@ class Car(pygame.sprite.Sprite):
         self.rect.center = cart2pg(array([self.x, self.y]) * 1000 * self.scale, self.world_h)
 
         #-------------------------------------------------------------------------------------------
-        # take actions based on policy and status
-        # TODO: replace with neural network
-        # NOW: do completely random stuff
-        if not self.crashed:
-            self.action()
 
-    def action(self):
+    def action(self, dt):
         data = []
         for s in self.sensors:
-            data.append(s.obs_distance)
+            data.append(1.0 / s.obs_distance)
             data.append(int(s.obs_is_visible))
 
         data = array(data)
 
         if self.NN is not None:
             steering, a = self.NN.predict(data)
-            self.steer(steering)
+            self.steer(steering, dt)
             self.accelerate(a)
 
         # do sth.
@@ -331,10 +324,17 @@ class Car(pygame.sprite.Sprite):
             self.v += dt * self.a
             self.v = max(self.v, 0.)
 
+            self.action(dt)
+
         self.invalidate()
 
-    def steer(self, delta):
-        self.steering = delta
+    def steer(self, delta, dt):
+        vsteering = 45 # degree / s
+        if delta > vsteering * dt:
+            delta = vsteering * dt
+        elif delta < -vsteering * dt:
+            delta = -vsteering * dt
+        self.steering += delta
 
         # check max steering
         if self.steering > self.MAX_STEERING:

@@ -15,6 +15,11 @@ import numpy as np
 from numpy import array
 from numpy.random import rand
 
+
+def sigmoid(x): # transformed
+    return 1. / (1. + np.exp(-x)) - 0.5
+
+
 class NN(object):
     """ Neural Network class. """
 
@@ -70,12 +75,12 @@ class NN(object):
 
         for w in self.weights:
             #print(w.shape)
-            data = w @ data
+            data = sigmoid(w @ data)
 
         # check output format
         if self.n_outputs != data.size:
             raise Exception("Wrong data shape after NN prediction.")
 
-        return data
+        return 180 * data / np.pi * 90.0 # in degree * MAX_STEERING
 
     # END

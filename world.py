@@ -26,9 +26,14 @@ Obstacle coordinates are given in cartesian coordinates. The world is displayed 
 """
 
 from numpy import asarray as arr
+from numpy import array
+import pygame
 
-WIDTH = 200 # m
-HEIGHT = 100 # m
+from graphics import Graphics
+from utility import cart2pg
+
+WIDTH = 160 # m
+HEIGHT = 80 # m
 
 # road
 super_simple_obstacles = arr([
@@ -47,17 +52,64 @@ super_simple_obstacles = arr([
     [[135, 60], [145, 70]], [[125, 65], [135, 75]],
 ])
 
+simple_border = array([[
+    [145, 70],
+    [135, 60],
+    [135, 35],
+    [130, 25],
+    [115, 10],
+    [100, 10],
+    [90, 15],
+    [80, 25],
+    [70, 25],
+    [60, 35],
+    [40, 35],
+    [30, 25],
+    [10, 25],
+    [10, 35], # start
+    [25, 35],
+    [35, 45],
+    [65, 45],
+    [75, 35],
+    [85, 35],
+    [95, 25],
+    [105, 20],
+    [110, 20],
+    [120, 30],
+    [125, 40],
+    [125, 65],
+    [135, 75],
+]])
+
 class World(object):
     """ World class."""
 
-    def __init__(self, scale, key):
-        self.scale = scale
+    def __init__(self, key):
 
-        self.w = scale * 1000 * WIDTH # scale converts mm
-        self.h = scale * 1000 * HEIGHT
+        self.w = WIDTH
+        self.h = HEIGHT
 
         if (key == 'simple'):
-            self.obstacles = super_simple_obstacles
-            self.scaled_obstacles = scale * 1000 * super_simple_obstacles
+            self.obstacles = simple_border #super_simple_obstacles
 
+        self.scaled_obstacles = None
+        return
+
+    def convert_obstacles(self, graphics):
+        """Draw obstacles to surface."""
+
+        scaled_obstacles = []
+        for obs in self.obstacles:
+            
+            # convert coordinates
+            obs_converted = []
+            for coords in obs:
+                coords = cart2pg(coords, self.h)
+
+                # convert to pixels
+                coords = graphics.convert(coords)
+                obs_converted.append(coords)
+            scaled_obstacles.append(obs_converted)
+
+        self.scaled_obstacles = arr(scaled_obstacles)
         return
